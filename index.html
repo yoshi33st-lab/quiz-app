@@ -1,0 +1,1216 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>5択クイズ（ローカルで動く）</title>
+  <style>
+    :root{--bg:#0b1020;--card:#121a33;--muted:#9fb0ff;--text:#e9ecff;--line:#22305e;--ok:#49d18e;--ng:#ff6b6b;--btn:#1b2550;--btn2:#22305e;}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#070a16 0%, #0b1020 60%, #0b1020 100%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;}
+    a{color:var(--muted)}
+    .wrap{max-width:980px;margin:0 auto;padding:16px 16px 64px;}
+    .title{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:10px 0 16px;}
+    .title h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.02em}
+    .title .sub{font-size:12px;color:#b9c3ff;opacity:.9}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;}
+    .tab{border:1px solid var(--line);background:transparent;color:var(--text);padding:8px 10px;border-radius:12px;cursor:pointer;user-select:none}
+    .tab[aria-selected="true"]{background:var(--btn2);border-color:#2f43ff66}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px;}
+    @media(min-width:900px){.grid{grid-template-columns:1.4fr .8fr;}}
+    .card{background:rgba(18,26,51,.85);border:1px solid rgba(34,48,94,.9);border-radius:18px;padding:14px;box-shadow:0 14px 40px rgba(0,0,0,.25);}
+    .card h2{font-size:14px;margin:0 0 8px;color:#cfd6ff}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .row > *{flex:1}
+    .row .tight{flex:0 0 auto}
+    label{display:block;font-size:12px;color:#cfd6ff;margin:10px 0 6px}
+    input[type="text"], textarea, select{
+      width:100%;border:1px solid var(--line);background:#0b1020;color:var(--text);
+      padding:10px 10px;border-radius:14px;outline:none;
+    }
+    textarea{min-height:92px;resize:vertical}
+    .btn{border:1px solid var(--line);background:var(--btn);color:var(--text);padding:10px 12px;border-radius:14px;cursor:pointer}
+    .btn:hover{filter:brightness(1.06)}
+    .btn.primary{background:#2f43ff33;border-color:#2f43ff66}
+    .btn.danger{background:#ff3b3b22;border-color:#ff3b3b55}
+    .btn.ghost{background:transparent}
+    .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;color:#cfd6ff;background:rgba(11,16,32,.5)}
+    .muted{color:#b9c3ff;opacity:.85}
+    .small{font-size:12px}
+    .qhead{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+    .qno{font-weight:700}
+    .timer{font-variant-numeric:tabular-nums}
+    .qtext{white-space:pre-wrap;line-height:1.5}
+    .choices{display:grid;gap:8px;margin-top:10px}
+    .choice{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:16px;padding:10px;background:rgba(11,16,32,.35);cursor:pointer}
+    .choice input{margin-top:3px}
+    .choice.correct{border-color:rgba(73,209,142,.7);background:rgba(73,209,142,.10)}
+    .choice.wrong{border-color:rgba(255,107,107,.7);background:rgba(255,107,107,.10)}
+    .choice .ctext{white-space:pre-wrap;line-height:1.45}
+    .hr{height:1px;background:rgba(34,48,94,.9);margin:12px 0}
+    .right{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+    .stat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .stat .box{border:1px solid var(--line);border-radius:16px;padding:10px;background:rgba(11,16,32,.35)}
+    .stat .k{font-size:12px;color:#cfd6ff}
+    .stat .v{font-size:18px;font-weight:800}
+    .list{display:grid;gap:8px}
+    .item{border:1px solid var(--line);border-radius:16px;padding:10px;background:rgba(11,16,32,.35)}
+    .item .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .badge{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:rgba(18,26,51,.55)}
+    .ok{color:var(--ok)}
+    .ng{color:var(--ng)}
+    .hint{font-size:12px;color:#cfd6ff;opacity:.9;line-height:1.5}
+    code{background:rgba(11,16,32,.6);padding:2px 6px;border-radius:8px;border:1px solid rgba(34,48,94,.8)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <div>
+        <h1>5択クイズ（ローカルで動く簡易アプリ）</h1>
+        <div class="sub">問題を自分で登録 → 練習／模試 → 採点／復習（localStorage保存）</div>
+      </div>
+      <div class="tabs" role="tablist" aria-label="tabs">
+        <button class="tab" id="tab-practice" role="tab" aria-selected="true">練習</button>
+        <button class="tab" id="tab-exam" role="tab" aria-selected="false">模試</button>
+        <button class="tab" id="tab-edit" role="tab" aria-selected="false">問題編集</button>
+        <button class="tab" id="tab-data" role="tab" aria-selected="false">データ</button>
+      </div>
+    </div>
+
+    <div id="view-practice" class="grid">
+      <div class="card">
+        <h2>練習（1問ずつ・即時フィードバック）</h2>
+        <div class="row">
+          <div class="pill">出題数：<span id="p-total">0</span></div>
+          <div class="pill">正答率：<span id="p-acc">-</span></div>
+          <div class="pill">連続正解：<span id="p-streak">0</span></div>
+        </div>
+        <div class="hr"></div>
+        <div class="row">
+          <div>
+            <label>タグで絞り込み（任意）</label>
+            <input id="p-tag" type="text" placeholder="例：生化学 / 代謝 / 細胞小器官" />
+          </div>
+          <div>
+            <label>出題の並び</label>
+            <select id="p-order">
+              <option value="random">ランダム</option>
+              <option value="sequence">登録順</option>
+            </select>
+          </div>
+          <div class="tight" style="align-self:end">
+            <button class="btn primary" id="p-start">開始／次の問題</button>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div id="p-quiz" style="display:none">
+          <div class="qhead">
+            <div class="qno" id="p-qno"></div>
+            <div class="pill">ID：<span id="p-qid"></span></div>
+          </div>
+          <div class="qtext" id="p-qtext" style="margin-top:8px"></div>
+          <div class="choices" id="p-choices"></div>
+          <div class="hr"></div>
+          <div class="right">
+            <button class="btn" id="p-reveal">正解を表示</button>
+            <button class="btn" id="p-next">次へ</button>
+          </div>
+          <div id="p-feedback" class="hint" style="margin-top:10px"></div>
+        </div>
+        <div id="p-empty" class="hint">
+          まずは <b>問題編集</b> タブで問題を追加してください。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>復習（直近20件）</h2>
+        <div id="p-log" class="list"></div>
+        <div class="hr"></div>
+        <div class="right">
+          <button class="btn ghost" id="p-clear-log">履歴を消す</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-exam" class="grid" style="display:none">
+      <div class="card">
+        <h2>模試（まとめて解く → 最後に採点）</h2>
+        <div class="row">
+          <div>
+            <label>出題数</label>
+            <select id="e-count">
+              <option>10</option>
+              <option>20</option>
+              <option>30</option>
+              <option>50</option>
+            </select>
+          </div>
+          <div>
+            <label>制限時間（分）</label>
+            <select id="e-min">
+              <option value="0">なし</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="60">60</option>
+            </select>
+          </div>
+          <div>
+            <label>タグで絞り込み（任意）</label>
+            <input id="e-tag" type="text" placeholder="例：生化学" />
+          </div>
+          <div class="tight" style="align-self:end">
+            <button class="btn primary" id="e-start">模試開始</button>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div id="e-running" style="display:none">
+          <div class="qhead">
+            <div class="pill">進捗：<span id="e-progress"></span></div>
+            <div class="pill">残り：<span class="timer" id="e-timer">--:--</span></div>
+          </div>
+          <div class="hr"></div>
+          <div id="e-questions"></div>
+          <div class="hr"></div>
+          <div class="right">
+            <button class="btn" id="e-abort">中止</button>
+            <button class="btn primary" id="e-grade">採点</button>
+          </div>
+        </div>
+        <div id="e-result" style="display:none">
+          <div class="stat">
+            <div class="box"><div class="k">得点</div><div class="v" id="e-score">-</div></div>
+            <div class="box"><div class="k">正答率</div><div class="v" id="e-rate">-</div></div>
+          </div>
+          <div class="hr"></div>
+          <div id="e-review"></div>
+          <div class="hr"></div>
+          <div class="right">
+            <button class="btn" id="e-close">閉じる</button>
+          </div>
+        </div>
+        <div id="e-empty" class="hint">問題がありません。<b>問題編集</b>から追加してください。</div>
+      </div>
+
+      <div class="card">
+        <h2>使い方メモ</h2>
+        <div class="hint">
+          ・模試は <b>正解表示なし</b> で最後に採点します。<br>
+          ・選択肢は毎回シャッフルされます（正解も追従）。<br>
+          ・タグは「生化学, 代謝」のように複数OK。検索は部分一致です。
+        </div>
+      </div>
+    </div>
+
+    <div id="view-edit" class="grid" style="display:none">
+      <div class="card">
+        <h2>問題を追加／編集</h2>
+        <div class="row">
+          <div>
+            <label>問題ID（自動）</label>
+            <input id="q-id" type="text" disabled />
+          </div>
+          <div>
+            <label>タグ（任意・カンマ区切り）</label>
+            <input id="q-tags" type="text" placeholder="例：生化学, 細胞, 代謝" />
+          </div>
+        </div>
+
+        <label>問題文</label>
+        <textarea id="q-text" placeholder="例：細胞質膜の基本構造はどれか。1つ選べ。"></textarea>
+
+        <div class="row">
+          <div>
+            <label>選択肢1</label>
+            <input id="c1" type="text" />
+          </div>
+          <div>
+            <label>選択肢2</label>
+            <input id="c2" type="text" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>選択肢3</label>
+            <input id="c3" type="text" />
+          </div>
+          <div>
+            <label>選択肢4</label>
+            <input id="c4" type="text" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>選択肢5</label>
+            <input id="c5" type="text" />
+          </div>
+          <div>
+            <label>正解</label>
+            <select id="q-ans">
+              <option value="0">選択肢1</option>
+              <option value="1">選択肢2</option>
+              <option value="2">選択肢3</option>
+              <option value="3">選択肢4</option>
+              <option value="4">選択肢5</option>
+            </select>
+          </div>
+        </div>
+
+        <label>解説（任意）</label>
+        <textarea id="q-exp" placeholder="ポイントや根拠など"></textarea>
+
+        <div class="right">
+          <button class="btn" id="q-new">新規</button>
+          <button class="btn primary" id="q-save">保存</button>
+          <button class="btn danger" id="q-del">削除</button>
+        </div>
+
+        <div class="hr"></div>
+        <h2>登録済み（クリックで編集）</h2>
+        <div class="row">
+          <div>
+            <input id="q-search" type="text" placeholder="検索：問題文／選択肢／タグ" />
+          </div>
+          <div class="tight">
+            <button class="btn" id="q-demo">デモ問題を追加</button>
+          </div>
+        </div>
+        <div id="q-list" class="list" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <h2>注意</h2>
+        <div class="hint">
+          外部サイトや書籍の問題を使う場合は、<b>著作権・利用規約に従って</b>、許可の範囲で入力してください。<br>
+          このファイルは「問題を入れる箱（アプリ）」です。
+        </div>
+        <div class="hr"></div>
+        <h2>スマホで「アプリっぽく」使う</h2>
+        <div class="hint">
+          1) PCでこのHTMLを開く → 2) VS Code の Live Server で起動 → 3) 同じWi‑FiのスマホでURLを開く → 4) 共有→ホーム画面に追加。<br>
+          ※ iPhoneは <code>file://</code> 直開きだと保存が不安定なことがあるので、できれば Live Server 推奨。
+        </div>
+      </div>
+    </div>
+
+    <div id="view-data" class="grid" style="display:none">
+      <div class="card">
+        <h2>データのバックアップ（JSON）</h2>
+        <div class="hint">
+          ・<b>エクスポート</b>で質問データをJSONで保存できます。<br>
+          ・<b>インポート</b>は、JSONを貼り付けて読み込みます（上書き or 追加）。
+        </div>
+        <div class="hr"></div>
+        <div class="right">
+          <button class="btn" id="d-export">エクスポート</button>
+          <button class="btn" id="d-share">共有リンク作成</button>
+          <button class="btn" id="d-savefile">JSONを保存</button>
+          <button class="btn danger" id="d-wipe">全消去</button>
+        </div>
+        <label>JSON 入出力</label>
+        <textarea id="d-json" placeholder='ここにJSONを貼り付け / エクスポート結果が表示されます'></textarea>
+        <div class="row">
+          <div>
+            <label>インポート方法</label>
+            <select id="d-mode">
+              <option value="merge">追加（既存IDは上書き）</option>
+              <option value="replace">置換（全部入れ替え）</option>
+            </select>
+          </div>
+          <div class="tight" style="align-self:end">
+            <button class="btn primary" id="d-import">インポート</button>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <h2>テキスト→JSON（簡易パーサ）</h2>
+        <div class="hint">
+          下の形式で貼ると、だいたい自動で5択として取り込みます（うまくいかなければ手動編集へ）。<br>
+          例：<br>
+          <code>Q: IFN-γを産生してマクロファージを活性化するのはどれか。1つ選べ。</code><br>
+          <code>ａ 形質細胞</code> / <code>ｂ Th1細胞</code> / <code>ｃ Th2細胞</code> / <code>ｄ Th17細胞</code> / <code>ｅ 制御性T細胞</code><br>
+          <code>解答：ｂ</code><br><br>
+          （別形式）<br>
+          <code>Q: …</code><br>
+          <code>1) …</code> / <code>2) …</code> / … / <code>5) …</code><br>
+          <code>A: 4</code>
+        </div>
+        <label>テキスト貼り付け</label>
+        <textarea id="d-raw" placeholder="Q: ...\n1) ...\n2) ...\n3) ...\n4) ...\n5) ...\nA: 4\n\nQ: ..."></textarea>
+        <div class="right">
+          <button class="btn" id="d-parse">テキストを取り込み</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>保存場所</h2>
+        <div class="hint">
+          このアプリはブラウザの <b>localStorage</b> に保存します。<br>
+          ブラウザのデータ消去をすると消えるので、時々 <b>エクスポート</b>でバックアップしてください。
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+(() => {
+  const LS_KEY = "quiz5_v1_questions";
+  const LS_LOG = "quiz5_v1_log";
+  const LS_STAT = "quiz5_v1_stat";
+
+  /** @type {Array<{id:string,text:string,choices:string[],answer:number,explain?:string,tags?:string[]}>} */
+  let questions = loadJson(LS_KEY, []);
+  /** @type {Array<{ts:number,qid:string,ok:boolean,chosen:number,correct:number,text:string}>} */
+  let log = loadJson(LS_LOG, []);
+  let stat = loadJson(LS_STAT, { total:0, correct:0, streak:0 });
+
+  // ===== helpers =====
+  function uid(){
+    const t = Date.now().toString(36);
+    const r = Math.random().toString(36).slice(2,8);
+    return `q_${t}_${r}`;
+  }
+  function saveAll(){
+    localStorage.setItem(LS_KEY, JSON.stringify(questions));
+    localStorage.setItem(LS_LOG, JSON.stringify(log.slice(-200)));
+    localStorage.setItem(LS_STAT, JSON.stringify(stat));
+  }
+  function loadJson(key, fallback){
+    try{
+      const raw = localStorage.getItem(key);
+      if(!raw) return fallback;
+      return JSON.parse(raw);
+    }catch{ return fallback; }
+  }
+  function esc(s){
+    return (s??"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+  }
+  function normalizeTag(s){
+    return (s||"").trim().toLowerCase();
+  }
+  function includesTag(q, tagQuery){
+    const t = normalizeTag(tagQuery);
+    if(!t) return true;
+    const tags = (q.tags||[]).map(normalizeTag).join(",");
+    return tags.includes(t) || (q.text||"").toLowerCase().includes(t) || (q.choices||[]).join(" ").toLowerCase().includes(t);
+  }
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+  function fmtTime(sec){
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = Math.floor(sec%60).toString().padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  // ===== tabs =====
+  const tabMap = [
+    ["tab-practice","view-practice"],
+    ["tab-exam","view-exam"],
+    ["tab-edit","view-edit"],
+    ["tab-data","view-data"],
+  ];
+  function showTab(tabId){
+    for(const [t,v] of tabMap){
+      document.getElementById(t).setAttribute("aria-selected", t===tabId ? "true":"false");
+      document.getElementById(v).style.display = (t===tabId)? "grid":"none";
+    }
+    // refresh views
+    if(tabId==="tab-practice") refreshPractice();
+    if(tabId==="tab-edit") refreshEditorList();
+    if(tabId==="tab-exam") refreshExamAvailability();
+  }
+  tabMap.forEach(([t])=>document.getElementById(t).addEventListener('click',()=>showTab(t)));
+
+  // ===== practice =====
+  const p = {
+    tag: document.getElementById('p-tag'),
+    order: document.getElementById('p-order'),
+    start: document.getElementById('p-start'),
+    quiz: document.getElementById('p-quiz'),
+    empty: document.getElementById('p-empty'),
+    qno: document.getElementById('p-qno'),
+    qid: document.getElementById('p-qid'),
+    qtext: document.getElementById('p-qtext'),
+    choices: document.getElementById('p-choices'),
+    reveal: document.getElementById('p-reveal'),
+    next: document.getElementById('p-next'),
+    feedback: document.getElementById('p-feedback'),
+    total: document.getElementById('p-total'),
+    acc: document.getElementById('p-acc'),
+    streak: document.getElementById('p-streak'),
+    log: document.getElementById('p-log'),
+    clearLog: document.getElementById('p-clear-log'),
+  };
+
+  let practiceState = { idx:0, pool:[], current:null, revealed:false, chosen:null, map:null };
+
+  function refreshPractice(){
+    p.total.textContent = String(stat.total || 0);
+    p.streak.textContent = String(stat.streak || 0);
+    p.acc.textContent = stat.total ? `${Math.round((stat.correct/stat.total)*1000)/10}%` : "-";
+
+    renderLog();
+
+    const available = filteredQuestions(p.tag.value);
+    if(available.length===0){
+      p.empty.style.display = "block";
+      p.quiz.style.display = "none";
+      return;
+    }
+    p.empty.style.display = "none";
+    if(!practiceState.current){
+      p.quiz.style.display = "none";
+    } else {
+      p.quiz.style.display = "block";
+    }
+  }
+
+  function filteredQuestions(tagQuery){
+    return questions.filter(q => includesTag(q, tagQuery));
+  }
+
+  function makePracticePool(){
+    const pool = filteredQuestions(p.tag.value);
+    if(p.order.value === 'sequence') return pool;
+    return shuffle(pool);
+  }
+
+  function startNextPractice(){
+    const pool = makePracticePool();
+    if(pool.length===0){ refreshPractice(); return; }
+
+    // if pool changed (tag/order), reset
+    practiceState.pool = pool;
+    practiceState.idx = (practiceState.idx + 1) % pool.length;
+
+    const q = pool[practiceState.idx];
+    practiceState.current = q;
+    practiceState.revealed = false;
+    practiceState.chosen = null;
+    practiceState.map = null;
+
+    renderPracticeQuestion(q);
+  }
+
+  function renderPracticeQuestion(q){
+    p.quiz.style.display = "block";
+    p.feedback.textContent = "";
+    p.qno.textContent = `問題`;
+    p.qid.textContent = q.id;
+    p.qtext.textContent = q.text;
+
+    // shuffle choices but keep mapping
+    const idxs = shuffle([0,1,2,3,4]);
+    const shuffled = idxs.map(i => q.choices[i]);
+    const correctNew = idxs.indexOf(q.answer);
+    practiceState.map = { idxs, correctNew };
+
+    p.choices.innerHTML = "";
+    shuffled.forEach((text, i) => {
+      const div = document.createElement('div');
+      div.className = 'choice';
+      div.innerHTML = `
+        <input type="radio" name="p-choice" ${practiceState.chosen===i?"checked":""} />
+        <div>
+          <div class="muted small">${i+1}</div>
+          <div class="ctext">${esc(text)}</div>
+        </div>
+      `;
+      div.addEventListener('click', ()=>{
+        if(practiceState.revealed) return;
+        practiceState.chosen = i;
+        Array.from(p.choices.children).forEach((el, j)=>{
+          el.querySelector('input').checked = (j===i);
+        });
+        // immediate feedback
+        const ok = (i===practiceState.map.correctNew);
+        applyPracticeResult(ok);
+      });
+      p.choices.appendChild(div);
+    });
+  }
+
+  function applyPracticeResult(ok){
+    if(practiceState.revealed) return;
+    practiceState.revealed = true;
+
+    const q = practiceState.current;
+    const chosenNew = practiceState.chosen;
+    const correctNew = practiceState.map.correctNew;
+
+    // style
+    Array.from(p.choices.children).forEach((el, j)=>{
+      if(j===correctNew) el.classList.add('correct');
+      if(j===chosenNew && j!==correctNew) el.classList.add('wrong');
+    });
+
+    stat.total = (stat.total||0) + 1;
+    if(ok){
+      stat.correct = (stat.correct||0) + 1;
+      stat.streak = (stat.streak||0) + 1;
+      p.feedback.innerHTML = `<b class="ok">正解</b>。` + (q.explain ? `<br>${esc(q.explain)}` : "");
+    } else {
+      stat.streak = 0;
+      p.feedback.innerHTML = `<b class="ng">不正解</b>。正解は <b>${correctNew+1}</b>。` + (q.explain ? `<br>${esc(q.explain)}` : "");
+    }
+
+    // log
+    log.push({ ts: Date.now(), qid:q.id, ok, chosen: chosenNew, correct: correctNew, text:q.text.slice(0,80) });
+    log = log.slice(-200);
+
+    saveAll();
+    refreshPractice();
+  }
+
+  p.start.addEventListener('click', ()=>{
+    if(questions.length===0){ refreshPractice(); return; }
+    // reset idx to -1 so next becomes 0
+    practiceState.idx = -1;
+    startNextPractice();
+  });
+  p.next.addEventListener('click', ()=>{
+    if(!practiceState.current){ startNextPractice(); return; }
+    startNextPractice();
+  });
+  p.reveal.addEventListener('click', ()=>{
+    if(!practiceState.current) return;
+    if(practiceState.revealed){ return; }
+    // if user didn't choose yet, still reveal
+    if(practiceState.chosen==null) practiceState.chosen = -1;
+    applyPracticeResult(false);
+  });
+  p.tag.addEventListener('input', ()=>{
+    // reset current when filter changes
+    practiceState.current = null;
+    refreshPractice();
+  });
+  p.order.addEventListener('change', ()=>{
+    practiceState.current = null;
+    refreshPractice();
+  });
+  p.clearLog.addEventListener('click', ()=>{
+    log = [];
+    saveAll();
+    renderLog();
+  });
+
+  function renderLog(){
+    const items = log.slice(-20).reverse();
+    if(items.length===0){
+      p.log.innerHTML = `<div class="hint">まだ履歴がありません。</div>`;
+      return;
+    }
+    p.log.innerHTML = items.map(it=>{
+      const d = new Date(it.ts);
+      const stamp = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      return `
+        <div class="item">
+          <div class="top">
+            <div><span class="badge">${stamp}</span> <span class="badge">${esc(it.qid)}</span></div>
+            <div class="badge ${it.ok?"ok":"ng"}">${it.ok?"○":"×"}</div>
+          </div>
+          <div class="hint" style="margin-top:6px">${esc(it.text)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ===== exam =====
+  const e = {
+    count: document.getElementById('e-count'),
+    min: document.getElementById('e-min'),
+    tag: document.getElementById('e-tag'),
+    start: document.getElementById('e-start'),
+    empty: document.getElementById('e-empty'),
+    running: document.getElementById('e-running'),
+    questions: document.getElementById('e-questions'),
+    progress: document.getElementById('e-progress'),
+    timer: document.getElementById('e-timer'),
+    abort: document.getElementById('e-abort'),
+    grade: document.getElementById('e-grade'),
+    result: document.getElementById('e-result'),
+    score: document.getElementById('e-score'),
+    rate: document.getElementById('e-rate'),
+    review: document.getElementById('e-review'),
+    close: document.getElementById('e-close'),
+  };
+
+  let examState = { active:false, items:[], maps:[], answers:[], leftSec:0, tick:null };
+
+  function refreshExamAvailability(){
+    const avail = filteredQuestions(e.tag.value);
+    e.empty.style.display = (avail.length===0 && !examState.active) ? "block":"none";
+  }
+  e.tag.addEventListener('input', refreshExamAvailability);
+
+  function stopTimer(){
+    if(examState.tick){ clearInterval(examState.tick); examState.tick=null; }
+  }
+
+  function startExam(){
+    const pool = filteredQuestions(e.tag.value);
+    if(pool.length===0){ refreshExamAvailability(); return; }
+
+    const n = Math.min(parseInt(e.count.value,10), pool.length);
+    const picked = shuffle(pool).slice(0,n);
+
+    examState.active = true;
+    examState.items = picked;
+    examState.answers = Array(n).fill(null);
+    examState.maps = [];
+
+    // timer
+    const mins = parseInt(e.min.value,10);
+    examState.leftSec = mins>0 ? mins*60 : 0;
+    stopTimer();
+    if(examState.leftSec>0){
+      e.timer.textContent = fmtTime(examState.leftSec);
+      examState.tick = setInterval(()=>{
+        examState.leftSec -= 1;
+        e.timer.textContent = fmtTime(Math.max(0, examState.leftSec));
+        if(examState.leftSec<=0){
+          stopTimer();
+          gradeExam();
+        }
+      }, 1000);
+    } else {
+      e.timer.textContent = "--:--";
+    }
+
+    e.result.style.display = "none";
+    e.running.style.display = "block";
+    e.empty.style.display = "none";
+
+    renderExamQuestions();
+    updateExamProgress();
+  }
+
+  function renderExamQuestions(){
+    e.questions.innerHTML = "";
+    examState.items.forEach((q, idx)=>{
+      // shuffle choices
+      const idxs = shuffle([0,1,2,3,4]);
+      const shuffled = idxs.map(i => q.choices[i]);
+      const correctNew = idxs.indexOf(q.answer);
+      examState.maps[idx] = { idxs, correctNew };
+
+      const wrap = document.createElement('div');
+      wrap.className = 'item';
+      wrap.innerHTML = `
+        <div class="top">
+          <div class="badge">Q${idx+1}</div>
+          <div class="badge">ID: ${esc(q.id)}</div>
+        </div>
+        <div class="qtext" style="margin-top:8px">${esc(q.text)}</div>
+        <div class="choices" style="margin-top:10px" id="exam_choices_${idx}"></div>
+      `;
+      e.questions.appendChild(wrap);
+
+      const cwrap = wrap.querySelector(`#exam_choices_${idx}`);
+      shuffled.forEach((txt, cidx)=>{
+        const c = document.createElement('div');
+        c.className = 'choice';
+        c.innerHTML = `
+          <input type="radio" name="exam_${idx}" />
+          <div>
+            <div class="muted small">${cidx+1}</div>
+            <div class="ctext">${esc(txt)}</div>
+          </div>
+        `;
+        c.addEventListener('click', ()=>{
+          examState.answers[idx] = cidx;
+          Array.from(cwrap.children).forEach((el, j)=>{
+            el.querySelector('input').checked = (j===cidx);
+          });
+          updateExamProgress();
+        });
+        cwrap.appendChild(c);
+      });
+    });
+  }
+
+  function updateExamProgress(){
+    const done = examState.answers.filter(v=>v!==null).length;
+    e.progress.textContent = `${done} / ${examState.items.length}`;
+  }
+
+  function gradeExam(){
+    if(!examState.active) return;
+    stopTimer();
+
+    const n = examState.items.length;
+    let ok = 0;
+    const rows = [];
+
+    for(let i=0;i<n;i++){
+      const q = examState.items[i];
+      const chosen = examState.answers[i];
+      const correct = examState.maps[i].correctNew;
+      const isOk = (chosen===correct);
+      if(isOk) ok++;
+      rows.push({ i, q, chosen, correct, isOk });
+
+      // global stats
+      stat.total = (stat.total||0) + 1;
+      if(isOk) stat.correct = (stat.correct||0) + 1;
+      stat.streak = isOk ? (stat.streak||0)+1 : 0;
+
+      log.push({ ts: Date.now(), qid:q.id, ok:isOk, chosen:(chosen??-1), correct, text:q.text.slice(0,80) });
+    }
+    log = log.slice(-200);
+
+    saveAll();
+
+    e.running.style.display = "none";
+    e.result.style.display = "block";
+
+    e.score.textContent = `${ok} / ${n}`;
+    e.rate.textContent = `${Math.round((ok/n)*1000)/10}%`;
+
+    e.review.innerHTML = rows.map(r=>{
+      const chosenLabel = (r.chosen==null) ? "未解答" : String(r.chosen+1);
+      const correctLabel = String(r.correct+1);
+      const explain = r.q.explain ? `<div class="hint" style="margin-top:6px">${esc(r.q.explain)}</div>` : "";
+      return `
+        <div class="item">
+          <div class="top">
+            <div><span class="badge">Q${r.i+1}</span> <span class="badge">${esc(r.q.id)}</span></div>
+            <div class="badge ${r.isOk?"ok":"ng"}">${r.isOk?"○":"×"}</div>
+          </div>
+          <div class="hint" style="margin-top:6px">あなた：${chosenLabel} / 正解：${correctLabel}</div>
+          <div class="qtext" style="margin-top:8px">${esc(r.q.text)}</div>
+          ${explain}
+        </div>
+      `;
+    }).join('');
+
+    refreshPractice();
+  }
+
+  function abortExam(){
+    stopTimer();
+    examState = { active:false, items:[], maps:[], answers:[], leftSec:0, tick:null };
+    e.running.style.display = "none";
+    e.result.style.display = "none";
+    refreshExamAvailability();
+  }
+
+  e.start.addEventListener('click', startExam);
+  e.grade.addEventListener('click', gradeExam);
+  e.abort.addEventListener('click', abortExam);
+  e.close.addEventListener('click', abortExam);
+
+  // ===== editor =====
+  const ed = {
+    id: document.getElementById('q-id'),
+    tags: document.getElementById('q-tags'),
+    text: document.getElementById('q-text'),
+    c: [document.getElementById('c1'),document.getElementById('c2'),document.getElementById('c3'),document.getElementById('c4'),document.getElementById('c5')],
+    ans: document.getElementById('q-ans'),
+    exp: document.getElementById('q-exp'),
+    save: document.getElementById('q-save'),
+    del: document.getElementById('q-del'),
+    nw: document.getElementById('q-new'),
+    list: document.getElementById('q-list'),
+    search: document.getElementById('q-search'),
+    demo: document.getElementById('q-demo'),
+  };
+  let editingId = null;
+
+  function clearEditor(){
+    editingId = null;
+    ed.id.value = "(新規)";
+    ed.tags.value = "";
+    ed.text.value = "";
+    ed.c.forEach(x=>x.value="");
+    ed.ans.value = "0";
+    ed.exp.value = "";
+  }
+
+  function loadToEditor(q){
+    editingId = q.id;
+    ed.id.value = q.id;
+    ed.tags.value = (q.tags||[]).join(", ");
+    ed.text.value = q.text;
+    for(let i=0;i<5;i++) ed.c[i].value = q.choices[i] || "";
+    ed.ans.value = String(q.answer);
+    ed.exp.value = q.explain || "";
+  }
+
+  function validateEditor(){
+    const text = ed.text.value.trim();
+    const choices = ed.c.map(x=>x.value.trim());
+    if(!text) return "問題文が空です";
+    if(choices.some(x=>!x)) return "選択肢を5つすべて入力してください";
+    return null;
+  }
+
+  function saveEditor(){
+    const err = validateEditor();
+    if(err){ alert(err); return; }
+
+    const q = {
+      id: editingId || uid(),
+      text: ed.text.value.trim(),
+      choices: ed.c.map(x=>x.value.trim()),
+      answer: parseInt(ed.ans.value,10),
+      explain: ed.exp.value.trim() || "",
+      tags: ed.tags.value.split(',').map(s=>s.trim()).filter(Boolean),
+    };
+
+    const idx = questions.findIndex(x=>x.id===q.id);
+    if(idx>=0) questions[idx] = q;
+    else questions.unshift(q);
+
+    saveAll();
+    loadToEditor(q);
+    refreshEditorList();
+    refreshPractice();
+    refreshExamAvailability();
+  }
+
+  function deleteEditor(){
+    if(!editingId){ alert("削除対象がありません"); return; }
+    if(!confirm("この問題を削除しますか？")) return;
+    questions = questions.filter(q=>q.id!==editingId);
+    saveAll();
+    clearEditor();
+    refreshEditorList();
+    refreshPractice();
+    refreshExamAvailability();
+  }
+
+  function refreshEditorList(){
+    const q = (ed.search.value||"").toLowerCase().trim();
+    const list = questions.filter(x => {
+      if(!q) return true;
+      const hay = (x.text+" "+(x.choices||[]).join(" ")+" "+(x.tags||[]).join(",")).toLowerCase();
+      return hay.includes(q);
+    });
+
+    if(list.length===0){
+      ed.list.innerHTML = `<div class="hint">該当なし</div>`;
+      return;
+    }
+
+    ed.list.innerHTML = list.slice(0,200).map(x=>{
+      const tag = (x.tags||[]).slice(0,4).join(", ");
+      return `
+        <div class="item" data-id="${esc(x.id)}" style="cursor:pointer">
+          <div class="top">
+            <div><span class="badge">${esc(x.id)}</span>${tag?` <span class="badge">${esc(tag)}</span>`:""}</div>
+            <div class="badge">正解：${x.answer+1}</div>
+          </div>
+          <div class="hint" style="margin-top:6px">${esc(x.text.slice(0,90))}${x.text.length>90?"…":""}</div>
+        </div>
+      `;
+    }).join('');
+
+    Array.from(ed.list.querySelectorAll('[data-id]')).forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const id = el.getAttribute('data-id');
+        const q = questions.find(x=>x.id===id);
+        if(q) loadToEditor(q);
+      });
+    });
+  }
+
+  function addDemo(){
+    // デモ：完全オリジナル（外部サイトのコピペではありません）
+    const demo = [
+      {
+        id: uid(),
+        text: "細胞膜の基本構造として最も適切なのはどれか。1つ選べ。",
+        choices: ["単層の脂肪酸膜","リン脂質二重層","セルロース膜","ペプチドグリカン層","コラーゲン線維束"],
+        answer: 1,
+        explain: "一般に『流動モザイクモデル』として説明され、リン脂質二重層に膜タンパク質が埋め込まれる。",
+        tags: ["生化学","細胞"],
+      },
+      {
+        id: uid(),
+        text: "解糖系が行われる主な細胞内局在はどれか。1つ選べ。",
+        choices: ["核","ミトコンドリア内膜","細胞質基質","粗面小胞体","ゴルジ装置"],
+        answer: 2,
+        explain: "解糖系は細胞質基質で進行し、ピルビン酸以降の酸化は主にミトコンドリアで行われる。",
+        tags: ["代謝","生化学"],
+      }
+    ];
+    questions = demo.concat(questions);
+    saveAll();
+    refreshEditorList();
+    refreshPractice();
+    refreshExamAvailability();
+    alert("デモ問題を追加しました。練習タブで動作確認できます。");
+  }
+
+  ed.save.addEventListener('click', saveEditor);
+  ed.del.addEventListener('click', deleteEditor);
+  ed.nw.addEventListener('click', clearEditor);
+  ed.search.addEventListener('input', refreshEditorList);
+  ed.demo.addEventListener('click', addDemo);
+
+  // ===== data =====
+  const d = {
+    json: document.getElementById('d-json'),
+    raw: document.getElementById('d-raw'),
+    mode: document.getElementById('d-mode'),
+    exportBtn: document.getElementById('d-export'),
+    shareBtn: document.getElementById('d-share'),
+    saveFileBtn: document.getElementById('d-savefile'),
+    importBtn: document.getElementById('d-import'),
+    wipeBtn: document.getElementById('d-wipe'),
+    parseBtn: document.getElementById('d-parse'),
+  };
+
+  d.exportBtn.addEventListener('click', ()=>{
+    const data = { version:1, exportedAt: new Date().toISOString(), questions };
+    d.json.value = JSON.stringify(data, null, 2);
+    d.json.focus();
+  });
+
+  // 共有リンク（URLの#に問題セットを埋め込む）
+  // ※URLの長さに上限があるため、問題数が多いと使えません。その場合はJSON保存/共有を使ってください。
+  function b64Encode(str){
+    return btoa(unescape(encodeURIComponent(str)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function b64Decode(b64){
+    const pad = b64.length % 4;
+    const norm = (b64.replace(/-/g,'+').replace(/_/g,'/') + (pad? '===='.slice(pad):''));
+    return decodeURIComponent(escape(atob(norm)));
+  }
+  function makeShareUrl(){
+    const data = { version:1, exportedAt: new Date().toISOString(), questions };
+    const payload = JSON.stringify(data);
+    const token = b64Encode(payload);
+    const url = `${location.origin}${location.pathname}#q=${token}`;
+    return { url, size: token.length };
+  }
+  function maybeImportFromHash(){
+    const h = (location.hash || "").trim();
+    if(!h.startsWith('#q=')) return;
+    try{
+      const token = h.slice(3);
+      const jsonStr = b64Decode(token);
+      const obj = JSON.parse(jsonStr);
+      const incoming = Array.isArray(obj) ? obj : (obj.questions||[]);
+      if(!Array.isArray(incoming) || incoming.length===0) throw new Error('questionsが空です');
+
+      const mode = confirm(`共有リンクの問題セット（${incoming.length}問）を読み込みます。
+
+OK：追加（既存IDは上書き）
+キャンセル：置換（全部入れ替え）`)
+        ? 'merge' : 'replace';
+
+      if(mode==='replace'){
+        questions = incoming;
+      } else {
+        const map = new Map(questions.map(q=>[q.id,q]));
+        incoming.forEach(q=>{
+          if(!q.id) q.id = uid();
+          map.set(q.id, q);
+        });
+        questions = Array.from(map.values());
+      }
+
+      saveAll();
+      refreshEditorList();
+      refreshPractice();
+      refreshExamAvailability();
+
+      // ハッシュを消して二重取り込みを防ぐ
+      history.replaceState(null, '', `${location.pathname}`);
+      alert(`読み込み完了（合計 ${questions.length} 問）`);
+    } catch (e) {
+      alert('共有リンクの読み込みに失敗: ' + (e?.message || e));
+    }
+  }
+
+  d.shareBtn.addEventListener('click', ()=>{
+    try{
+      const {url, size} = makeShareUrl();
+      d.json.value = url;
+      d.json.focus();
+      // クリップボード
+      if(navigator.clipboard?.writeText){
+        navigator.clipboard.writeText(url).catch(()=>{});
+      }
+      // ざっくり警告
+      if(size > 6000){
+        alert('共有リンクが長くなっています。問題数が多い場合は「JSONを保存」して配布する方が確実です。');
+      }
+    } catch (e) {
+      alert('共有リンク作成に失敗: ' + (e?.message || e));
+    }
+  });
+
+  d.saveFileBtn.addEventListener('click', ()=>{
+    const data = { version:1, exportedAt: new Date().toISOString(), questions };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0,10);
+    a.download = `quiz_questions_${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 0);
+  });
+
+  d.importBtn.addEventListener('click', ()=>{
+    try{
+      const obj = JSON.parse(d.json.value);
+      const incoming = Array.isArray(obj) ? obj : (obj.questions||[]);
+      if(!Array.isArray(incoming)) throw new Error("questionsが配列ではありません");
+
+      if(d.mode.value==="replace"){
+        questions = incoming;
+      } else {
+        // merge
+        const map = new Map(questions.map(q=>[q.id,q]));
+        incoming.forEach(q=>{
+          if(!q.id) q.id = uid();
+          map.set(q.id, q);
+        });
+        questions = Array.from(map.values());
+      }
+
+      saveAll();
+      refreshEditorList();
+      refreshPractice();
+      refreshExamAvailability();
+      alert(`インポートしました（合計 ${questions.length} 問）`);
+    } catch (e) {
+      alert("インポート失敗: " + (e?.message || e));
+    }
+  });
+
+  d.wipeBtn.addEventListener('click', ()=>{
+    if(!confirm("問題・履歴・統計をすべて削除します。よろしいですか？")) return;
+    questions = [];
+    log = [];
+    stat = { total:0, correct:0, streak:0 };
+    saveAll();
+    clearEditor();
+    refreshEditorList();
+    refreshPractice();
+    refreshExamAvailability();
+    d.json.value = "";
+    d.raw.value = "";
+  });
+
+  d.parseBtn.addEventListener('click', ()=>{
+    const raw = d.raw.value;
+    const parsed = parseRaw(raw);
+    if(parsed.length===0){
+      alert("取り込める問題が見つかりませんでした。形式を確認してください。");
+      return;
+    }
+    questions = parsed.concat(questions);
+    saveAll();
+    refreshEditorList();
+    refreshPractice();
+    refreshExamAvailability();
+    alert(`${parsed.length} 問を取り込みました（合計 ${questions.length} 問）`);
+  });
+
+  function parseRaw(raw){
+    // 対応する形式（例）
+    // ① Q: ... / 1) ... / A: 4
+    // ② 問題文（そのまま） + ａ〜ｅ（または a〜e） + 解答：ｂ
+
+    const textAll = (raw || "").replace(/\r/g, "");
+    const blocks = textAll.split(/\n\s*\n+/).map(b=>b.trim()).filter(Boolean);
+    const out = [];
+
+    const choiceRe = /^\s*(?:\(?\s*(?:[1-5]|[①-⑤]|[a-eA-Eａ-ｅＡ-Ｅ])\s*\)?\s*[)）\.．:\-]?\s*)(.+)$/;
+    const ansRe    = /^\s*(?:A|答|解答|正解)\s*[:：]\s*(.+)$/i;
+    const expRe    = /^\s*(?:E|解説|ポイント)\s*[:：]\s*(.+)$/i;
+
+    function ansFrom(token){
+      const t = (token || "").trim();
+      const n = t.match(/[1-5]/);
+      if(n) return parseInt(n[0], 10) - 1;
+      const l = t.match(/[a-eA-Eａ-ｅＡ-Ｅ]/);
+      if(l){
+        const ch = l[0].toLowerCase();
+        const map = { a:0, b:1, c:2, d:3, e:4, "ａ":0, "ｂ":1, "ｃ":2, "ｄ":3, "ｅ":4 };
+        return (ch in map) ? map[ch] : null;
+      }
+      return null;
+    }
+
+    for(const b of blocks){
+      const lines = b.split(/\n/).map(x=>x.trim()).filter(Boolean);
+      if(lines.length === 0) continue;
+
+      // 1) 選択肢を抽出（ａ〜ｅ / a〜e / 1〜5 / ①〜⑤）
+      const choices = [];
+      let firstChoiceIdx = -1;
+      for(let i=0;i<lines.length;i++){
+        const m = lines[i].match(choiceRe);
+        if(m){
+          if(firstChoiceIdx < 0) firstChoiceIdx = i;
+          choices.push(m[1].trim());
+          if(choices.length >= 5) break;
+        }
+      }
+      if(choices.length < 5 || firstChoiceIdx < 0) continue;
+
+      // 2) 問題文：先頭〜最初の選択肢まで（Q: があれば優先）
+      const qIdx = lines.findIndex(l => /^\s*Q\s*[:：]/i.test(l));
+      const start = (qIdx >= 0) ? qIdx : 0;
+      let qText = lines.slice(start, firstChoiceIdx)
+        .map(l => l.replace(/^\s*Q\s*[:：]\s*/i, ""))
+        .join("\n")
+        .trim();
+      qText = qText.replace(/^\s*(?:問\s*\d+|\d+\s*[)）\.．:：])\s*/, "").trim();
+      if(!qText) continue;
+
+      // 3) 解答・解説（任意）：どこにあっても拾う
+      let ans = null;
+      let explain = "";
+      for(const line of lines){
+        const ma = line.match(ansRe);
+        if(ma && ans === null) ans = ansFrom(ma[1]);
+        const me = line.match(expRe);
+        if(me && !explain) explain = me[1].trim();
+      }
+      // ブロック全体に「解答：b」形式が埋まっている場合も拾う
+      if(ans === null){
+        const m2 = b.match(/解答\s*[:：]?\s*([1-5a-eA-Eａ-ｅＡ-Ｅ])/i);
+        if(m2) ans = ansFrom(m2[1]);
+      }
+
+      // 4) 正解が無い場合は仮置き（後で問題編集で直せる）
+      if(ans === null || ans === undefined){
+        ans = 0;
+        explain = (explain ? (explain + "\n") : "") + "【要設定】この貼り付けから正解が見つからなかったため、仮に『選択肢1』を正解にしています。『問題編集』で正解を直してください。";
+      }
+
+      out.push({ id: uid(), text: qText, choices, answer: ans, explain, tags: [] });
+    }
+
+    return out;
+  }
+
+  // ===== init =====
+  clearEditor();
+  // 共有リンク(#q=...) があれば自動取り込み
+  maybeImportFromHash();
+  refreshEditorList();
+  refreshPractice();
+  refreshExamAvailability();
+})();
+</script>
+</body>
+</html>

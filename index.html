@@ -297,32 +297,53 @@
     <div id="view-data" class="grid" style="display:none">
       <div class="card">
         <h2>データのバックアップ（JSON）</h2>
-        <div class="hint">
-          ・<b>エクスポート</b>で質問データをJSONで保存できます。<br>
-          ・<b>インポート</b>は、JSONを貼り付けて読み込みます（上書き or 追加）。
-        </div>
-        <div class="hr"></div>
-        <div class="right">
-          <button class="btn" id="d-export">エクスポート</button>
-          <button class="btn" id="d-share">共有リンク作成</button>
-          <button class="btn" id="d-savefile">JSONを保存</button>
-          <button class="btn danger" id="d-wipe">全消去</button>
-        </div>
-        <label>JSON 入出力</label>
-        <textarea id="d-json" placeholder='ここにJSONを貼り付け / エクスポート結果が表示されます'></textarea>
-        <div class="row">
-          <div>
-            <label>インポート方法</label>
-            <select id="d-mode">
-              <option value="merge">追加（既存IDは上書き）</option>
-              <option value="replace">置換（全部入れ替え）</option>
-            </select>
-          </div>
-          <div class="tight" style="align-self:end">
-            <button class="btn primary" id="d-import">インポート</button>
-          </div>
-        </div>
-        <div class="hr"></div>
+<div class="hint">
+  ・エクスポートで質問データをJSONで保存できます。<br/>
+  ・インポートは、JSONを貼り付けて読み込みます（上書き or 追加）。
+</div>
+
+<div class="row" style="margin:10px 0;">
+  <button class="btn" id="d-export">エクスポート</button>
+  <button class="btn" id="d-share">共有リンク作成</button>
+  <button class="btn" id="d-savefile">JSONを保存</button>
+  <button class="btn danger" id="d-wipe">全消去</button>
+</div>
+
+<label class="label">JSON 入出力</label>
+<textarea id="d-json" placeholder="ここにJSONを貼り付け / エクスポート結果が表示されます"></textarea>
+
+<div class="row" style="margin-top:10px; align-items:flex-end;">
+  <div style="flex:1;">
+    <label class="label">インポート方法</label>
+    <select id="d-mode">
+      <option value="merge">追加（既存IDは上書き）</option>
+      <option value="replace">置換（全て入れ替え）</option>
+    </select>
+  </div>
+  <div class="tight">
+    <button class="btn primary" id="d-import">インポート</button>
+  </div>
+</div>
+
+<div class="card" style="margin-top:10px;">
+  <h3 style="margin:0 0 10px;">ファイル/URLから取り込み</h3>
+  <div class="row" style="gap:10px; align-items:center;">
+    <div style="flex:1;">
+      <label class="label">JSONファイルから取り込み</label>
+      <input id="d-file" type="file" accept=".json,application/json"/>
+    </div>
+    <div style="flex:1;">
+      <label class="label">共有リンク（URL）を貼り付け</label>
+      <input id="d-url" type="text" placeholder="https://..."/>
+    </div>
+    <div class="tight" style="align-self:end;">
+      <button class="btn" id="d-urlimport">URL読込</button>
+    </div>
+  </div>
+  <div class="hint" style="margin-top:8px;">
+    ※URL方式は長い問題数だと失敗します。その場合は「JSONを保存」→ファイル方式で配布してください。
+  </div>
+</div><div class="hr"></div>
         <h2>テキスト→JSON（簡易パーサ）</h2>
         <div class="hint">
           下の形式で貼ると、だいたい自動で5択として取り込みます（うまくいかなければ手動編集へ）。<br>
@@ -965,6 +986,9 @@
     shareBtn: document.getElementById('d-share'),
     saveFileBtn: document.getElementById('d-savefile'),
     importBtn: document.getElementById('d-import'),
+    fileInput: document.getElementById('d-file'),
+    urlInput: document.getElementById('d-url'),
+    urlImportBtn: document.getElementById('d-urlimport'),
     wipeBtn: document.getElementById('d-wipe'),
     parseBtn: document.getElementById('d-parse'),
   };
@@ -1066,48 +1090,96 @@ OK：追加（既存IDは上書き）
     }, 0);
   });
 
-  d.importBtn.addEventListener('click', ()=>{
-    try{
-      const obj = JSON.parse(d.json.value);
-      const incoming = Array.isArray(obj) ? obj : (obj.questions||[]);
-      if(!Array.isArray(incoming)) throw new Error("questionsが配列ではありません");
+  function extractIncoming(obj){
+    if(Array.isArray(obj)) return obj;
+    if(obj && Array.isArray(obj.questions)) return obj.questions;
+    return null;
+  }
 
-      if(d.mode.value==="replace"){
-        questions = incoming;
-      } else {
-        // merge
-        const map = new Map(questions.map(q=>[q.id,q]));
-        incoming.forEach(q=>{
-          if(!q.id) q.id = uid();
-          map.set(q.id, q);
-        });
-        questions = Array.from(map.values());
-      }
-
-      saveAll();
-      refreshEditorList();
-      refreshPractice();
-      refreshExamAvailability();
-      alert(`インポートしました（合計 ${questions.length} 問）`);
-    } catch (e) {
-      alert("インポート失敗: " + (e?.message || e));
+  function applyImport(incoming, mode){
+    if(!Array.isArray(incoming) || incoming.length===0){
+      alert('インポート対象の問題が見つかりませんでした。');
+      return;
     }
-  });
+    incoming.forEach(q=>{ if(!q.id) q.id = uid(); });
 
-  d.wipeBtn.addEventListener('click', ()=>{
-    if(!confirm("問題・履歴・統計をすべて削除します。よろしいですか？")) return;
-    questions = [];
-    log = [];
-    stat = { total:0, correct:0, streak:0 };
+    if(mode === 'replace'){
+      questions = incoming;
+    } else {
+      const map = new Map(questions.map(q=>[q.id, q]));
+      incoming.forEach(q=> map.set(q.id, q));
+      questions = Array.from(map.values());
+    }
+
     saveAll();
-    clearEditor();
     refreshEditorList();
     refreshPractice();
     refreshExamAvailability();
-    d.json.value = "";
-    d.raw.value = "";
+    alert(`インポート完了（合計 ${questions.length} 問）`);
+  }
+
+  function importFromJsonString(jsonStr){
+    const obj = JSON.parse(jsonStr);
+    const incoming = extractIncoming(obj);
+    if(!incoming) throw new Error('JSON形式が不正です（questions配列が見つかりません）。');
+    applyImport(incoming, d.mode?.value || 'merge');
+  }
+
+  d.importBtn.addEventListener('click', ()=>{
+    const s = (d.json.value || '').trim();
+    if(!s){
+      alert('JSON 入出力欄にJSONを貼り付けてからインポートしてください。');
+      return;
+    }
+    try{
+      importFromJsonString(s);
+    } catch(e){
+      alert('インポート失敗: ' + (e?.message || e));
+    }
   });
 
+  // ファイルから取り込み（iPhone推奨）
+  d.fileInput?.addEventListener('change', (ev)=>{
+    const file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const txt = String(reader.result || '');
+        d.json.value = txt;
+        importFromJsonString(txt);
+      } catch(e){
+        alert('ファイル取り込み失敗: ' + (e?.message || e));
+      } finally {
+        d.fileInput.value = '';
+      }
+    };
+    reader.onerror = ()=> alert('ファイルの読み込みに失敗しました。');
+    reader.readAsText(file, 'utf-8');
+  });
+
+  // URLから取り込み
+  d.urlImportBtn?.addEventListener('click', async ()=>{
+    const url = (d.urlInput?.value || '').trim();
+    if(!url){
+      alert('URLを入力してください。');
+      return;
+    }
+    try{
+      d.urlImportBtn.disabled = true;
+      d.urlImportBtn.textContent = '読込中…';
+      const res = await fetch(url, {cache:'no-store'});
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const txt = await res.text();
+      d.json.value = txt;
+      importFromJsonString(txt);
+    } catch(e){
+      alert('URL読込に失敗: ' + (e?.message || e) + '\n（CORSでブロックされる場合はJSONファイル方式を使ってください）');
+    } finally {
+      d.urlImportBtn.disabled = false;
+      d.urlImportBtn.textContent = 'URL読込';
+    }
+  });
   d.parseBtn.addEventListener('click', ()=>{
     const raw = d.raw.value;
     const parsed = parseRaw(raw);
